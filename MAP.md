@@ -1,36 +1,44 @@
 # MAP — read this first, open files only when you change them
 
-Purpose: retake control of meals. Loop = Recipes → Plan (any length) → List (needs − home stock) → Shop → Cook → Review → next plan.
-Stack: Vite + TS + Preact + Dexie (IndexedDB) + vite-plugin-pwa. Offline, no account, no server. Hosted on GitHub Pages.
-Design source: council-runs/meal-planner-20261029/design-v2.md (council verdict: verdict.md).
+Purpose: retake control of meals. Loop = Recettes → Plan (any length) → Courses (À prévoir → Panier) → Maison → Cuisiner → Bilan → next plan.
+Stack: Vite + TS + Preact + Dexie (IndexedDB) + vite-plugin-pwa (installable, offline, share_target). French UI. GitHub Pages (.github/workflows/deploy.yml).
+Design source: council-runs/meal-planner-20261029/design-v2.md (+ verdict.md).
 
 ## Files (one module each, keep them small)
-- src/domain/ — PURE logic, unit-tested (tests/*.test.ts)
-  - units.ts      families mass g · vol ml · count pc · own families (can, clove, bunch…); roundUp; formatQty (spoons, plurals)
-  - catalogue.ts  Catalogue class: alias index, norm(), singular(), match() exact→head→tail words, NO fuzzy
-  - parser.ts     parseLine/parseText: FR+EN, fractions ½ 1/2, ranges 2-3, "d'", "une pincée", "sel, poivre" split
-  - listBuild.ts  collectNeeds (servings+extra, leftovers=no demand, pieces→g via pieceG) → applyStock (always/have/covered/low) → mergeList (keeps ticks, edits, manual) → listAsText
-  - stock.ts      putAway (bought→Have, adds compatible qty) · cookDeduct (opt-in, known qty only) · isStale (>30 d)
-  - suggest.ts    score = not-recent + use-it-up(stock, non-pantry) + season; alternate veggie/other
-  - dates.ts      'YYYY-MM-DD' helpers
-- src/data/       ingredients.ts (compact "id|en|fr|aisle|pieceG|aliases", AISLES order, PANTRY_AISLES) · recipes.ts (15 original starters)
-- src/db/         types.ts (entities) · db.ts (ONLY Dexie layer, seed, export/import, 3 rolling snapshots) · ops.ts (addMeal, removeMeal, setStatus, createPeriod+copy, fill)
-- src/ui/         App (tabs) · kit (useLive, toast+Undo, Sheet, Seg, Stepper) · PlanScreen + PlanSheets (SlotPicker, MealMenu, PeriodDialog, FillSheet, ReviewSheet)
-                  RecipesScreen (+RecipeBody) · RecipeEdit (paste + parse preview + create ingredient) · ListScreen (CheckHome, DoneShopping) · StockScreen · Settings (BackupBanner)
-- src/styles.css  tokens on :root, dark mode, 48px targets
-- tests/          parser · list (+stock) · seed (all starters parse) · e2e_smoke.py (Playwright, phone viewport)
+- src/domain/ — PURE logic, unit-tested
+  - units.ts       families mass g · vol ml · count pc · own (can, clove…); roundUp; formatQty FR ("1,5 kg", "2 c. à s."); EDIT_UNITS
+  - catalogue.ts   Catalogue: alias index, norm(), singular(), match() exact→head→tail, NO fuzzy; name() = French; loads data/extra/*.ts
+  - parser.ts      parseLine/parseText: FR+EN lines, fractions, ranges, "d'", "une pincée", "sel, poivre"
+  - recipeText.ts  tag vocabulary (CATEGORIES, DIETS, CUISINES, SEASONS) · parseBank (bank format) · parseFreeText (pasted/shared) · parseJsonLdRecipe · filterRecipes · migrateTags
+  - listBuild.ts   collectNeeds → applyStock → (proposal) · addToCart (merge same ingredient+family) · needToItem · listAsText · mergeList (legacy)
+  - stock.ts       putAway · cookDeduct (opt-in) · isStale (>30 d)
+  - suggest.ts     main dishes only (isMain) · not-recent + use-it-up + season · alternate vege
+  - dates.ts       'YYYY-MM-DD' helpers, fr-FR labels
+- src/data/
+  - ingredients.ts  ~570 lines "id|en|fr|aisle|pieceG|aliases" · AISLES (13 French store sections) · PANTRY_AISLES
+  - bank/*.ts       recipe bank, ~300 recipes in 6 themes (francaise, vege, monde, rapide, soupes, desserts) — format: bank/README.md
+  - extra/*.ts      extra ingredients per theme (same line format)
+- src/db/  types.ts · db.ts (ONLY Dexie layer; seedIfEmpty = bank v2 + migration; export/import; 3 snapshots) · ops.ts (addMeal, removeMeal, setStatus, createPeriod+copy, fill)
+- src/ui/
+  - App (tabs Plan/Recettes/Courses/Maison, Boundary per tab, share-target reader, Welcome) · kit (useLive, toast+Annuler, Sheet+footer, Seg, Stepper, Boundary, FilterBar)
+  - PlanScreen + PlanSheets (SlotPicker: slot = 1 tap; Ideas = multi-select stays open + FilterBar · MealMenu · PeriodDialog · FillSheet · ReviewSheet)
+  - RecipesScreen (+RecipeBody, FilterBar) · RecipeEdit (+PasteSheet, tag groups, parse preview, create ingredient)
+  - ListScreen: Proposal (uncheck → kv proposalOff, extras stage 'proposal', CheckHome, Valider → cart + meals.listedAt) · Cart (tick, ✕, SizeSheet, share) · PutAway → stock
+  - StockScreen (+QtySheet) · Settings (Welcome, BackupBanner, SettingsSheet)
+- tests/  parser · list (+stock, cart) · recipeText · bank (validates every bank file) · e2e_smoke.py (Playwright phone flows)
 
 ## Entities (src/db/types.ts)
-Recipe{lines[RecipeLine{ingredientId|null, raw, rawKey, qty, qty2, unit, note}]} · Period{start,end,reviewedAt}
-PlannedMeal{periodId, recipeId|label, date?, slot? lunch|dinner, servings, extra, status planned|cooked|skipped, listedAt?, leftoverOf?}
-StockItem{ingredientId, level have|low|out, qty?, unit? (base g/ml/pc), alwaysHave} · ListItem{key, ticked, manual, edited, mealIds}
-kv: household, cookDeduct, lastExport, firstUse, snoozeBackup, seeded
+Recipe{title, servings, minutes, tags[], lines[{ingredientId|null, raw, rawKey, qty, qty2, unit, note}], steps, source starter|user}
+Period{start,end,reviewedAt} · PlannedMeal{periodId, recipeId|label, date?, slot?, servings, extra, status, listedAt?, leftoverOf?}
+StockItem{ingredientId, level have|low|out, qty?, unit? (g/ml/pc…), alwaysHave} · ListItem{key, stage proposal|cart, ticked, qty, unit, edited}
+kv: household, onboarded, cookDeduct, lastExport, firstUse, snoozeBackup, seeded, bankVersion, proposalOff
 
 ## Key rules
-- List scope = planned, not shopped (listedAt null), not leftovers, date today..until (or no date), period not over
-- "Done shopping" → ticked to stock, all scoped meals get listedAt, unticked stay as manual
-- Stock: Have (no qty) excludes the item; qty subtracts; Low/Out = buy; ★ staples never listed
-- Every destructive action: toast with Undo (8 s); snapshot before import & before "Done shopping"
+- Proposal scope = planned, listedAt null, not leftovers, date today..until (or no date), period not over; minus stock
+- Valider: selected → cart (merge), scoped meals get listedAt · Ranger: ticked cart items → stock "J'ai" with qty
+- Stock: J'ai without qty excludes; qty subtracts; Peu/Plus = buy; ★ basiques never listed
+- Every destructive action: toast with Annuler (8 s); snapshot before import and before Ranger
+- Bank upgrade: bump BANK_VERSION in db.ts → unused starters replaced, user recipes kept
 
-## Not done yet / ideas (see design-v2 §1 "later")
-URL recipe import · French UI · aisle reorder per store · Capacitor APK (only if storage gets wiped) · cook mode (wake lock)
+## Later
+URL import beyond JSON-LD · aisle reorder per store · Capacitor APK (only if storage wiped) · cook mode (wake lock)

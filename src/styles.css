@@ -130,3 +130,21 @@ textarea { resize: vertical; line-height: 1.5; } input.short { width: 140px; fle
 .toast { position: fixed; left: 16px; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom)); max-width: 600px; margin: 0 auto; background: var(--ink); color: var(--bg);
   border-radius: 12px; padding: 6px 8px 6px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; z-index: 30; min-height: 52px; }
 .toast .link { color: var(--accent-soft); filter: brightness(1.6); }
+
+/* v0.2 */
+.tabs2 { margin: 0 0 10px; } .tabs2 .seg { width: 100%; } .tabs2 .seg button { flex: 1; }
+.sheet-foot { padding: 10px 18px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--bg); }
+.sheet-foot .wide:first-child { margin-top: 0; }
+.filterbar { position: sticky; top: 0; z-index: 2; background: var(--bg); padding-bottom: 4px; }
+.sheet .filterbar { top: -1px; }
+.chip.flag { min-height: 36px; font-size: .9rem; }
+.plist button { flex-direction: row; justify-content: flex-start; gap: 12px; min-height: 60px; }
+.plist .pl { display: flex; flex-direction: column; align-items: flex-start; }
+.plist .tick { width: 32px; height: 32px; flex: none; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; color: var(--muted); font-weight: 700; }
+.plist button.on { background: var(--veg-soft); } .plist button.on .tick { background: var(--veg); border-color: var(--veg); color: #fff; }
+.items li.off { opacity: .5; } .items li.off .it { text-decoration: line-through; }
+.items .qty { min-height: 40px; padding: 0 10px; font-weight: 600; background: var(--bg); border: 1.5px dashed var(--line); white-space: nowrap; }
+.qtyin { width: 120px; flex: none; font-size: 1.2rem; }
+.tagrow { margin: 6px 0; } .tagrow .chips { margin-top: 2px; }
+.addrow { margin: 12px 0; }
+.cue.small { font-size: .9rem; }

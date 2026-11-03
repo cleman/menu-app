@@ -2,10 +2,10 @@
 
 Plan meals for **any period** (1 week, 2 weeks, 10 days…), pick from your recipes, and get a **shopping list that already removes what you have at home**. Offline, no account, your data stays on your phone.
 
-**Plan** · days with Lunch/Dinner + an "Ideas" pool (meals without a fixed day) · ✨ Suggest fills empty dinners (not eaten lately, uses what you have, about half veggie, seasonal) · leftovers · copy a previous plan · end-of-plan review → next plan in one tap.
-**Recipes** · 15 starters · paste ingredients in French or English, they're recognised (`200 g d'oignons`, `1 c. à soupe d'huile`, `sel, poivre`).
-**List** · quantities merged across recipes, grouped by aisle · "Check what I have first" (Have / Low / Out) · share as text · "Done shopping" puts bought items into At home.
-**At home** · rough stock: Have / Low / Out, quantities only when you know them, ★ staples (salt, oil…) never on the list.
+**Plan** · jours avec midi/soir + des « Idées » (plats sans jour fixé, sélection multiple avec filtres) · ✨ Proposer remplit les dîners libres · restes · copier un plan · bilan de fin de plan.
+**Recettes** · ~300 recettes françaises (plats, végé, poisson, monde, pâtes/tartes, soupes, salades, desserts, petit-déj) · filtres par catégorie, régime, cuisine, rapide, saison · coller une recette entière ou la partager depuis Chrome.
+**Courses** · 1) *À prévoir* : ingrédients des repas moins ce que vous avez, décochez ce que vous ne voulez pas · 2) *Panier* : cochez ce que vous achetez vraiment, indiquez la taille du paquet, retirez · 3) *Ranger* → Maison.
+**Maison** · stock approximatif : J'ai / Peu / Plus, quantité si connue, ★ basiques (sel, huile…) jamais dans les courses.
 
 ## Install on your Android phone (from Ubuntu)
 

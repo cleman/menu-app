@@ -64,3 +64,22 @@ describe('stock', () => {
     expect(out).toHaveLength(1); expect(out[0].qty).toBe(100);
   });
 });
+
+import { addToCart } from '../src/domain/listBuild';
+describe('cart', () => {
+  it('merges same ingredient and unit family, keeps others separate', () => {
+    const cart = addToCart([{ key: 'c:pasta:mass', stage: 'cart', ingredientId: 'pasta', text: 'Pâtes', qty: 500, unit: 'g', aisle: 'dry', ticked: true }],
+      [{ key: 'pasta', ingredientId: 'pasta', text: 'Pâtes', qty: 1, unit: 'kg', aisle: 'dry', ticked: false },
+       { key: 'egg', ingredientId: 'egg', text: 'Œuf', qty: 6, unit: 'pc', aisle: 'dairy', ticked: false }]);
+    expect(cart).toHaveLength(2);
+    expect(cart[0]).toMatchObject({ qty: 1500, unit: 'g', ticked: false });
+    expect(cart[1]).toMatchObject({ stage: 'cart', ingredientId: 'egg' });
+  });
+});
+describe('herbs', () => {
+  it('spoons of fresh herbs become bunches', () => {
+    const r = new Map([['h', R('h', 2, '3 c. à soupe de persil\n2 c. à café de persil')]]);
+    const [n] = applyStock(collectNeeds([M('x', 'h', 2)], r, cat), new Map());
+    expect(n).toMatchObject({ unit: 'bunch', qty: 1 });
+  });
+});

@@ -3,14 +3,18 @@ import type { PlannedMeal, Recipe, StockItem } from '../db/types';
 import { PANTRY_AISLES } from '../data/ingredients';
 import type { Catalogue } from './catalogue';
 
-const SEASON = ['winter', 'winter', 'spring', 'spring', 'spring', 'summer', 'summer', 'summer', 'autumn', 'autumn', 'autumn', 'winter'];
+import { SEASON_OF_MONTH } from './recipeText';
+const MAINS = new Set(['plat', 'tarte']);
+const CATS = new Set(['plat', 'tarte', 'soupe', 'salade', 'accompagnement', 'sauce', 'dessert', 'petit-dej']);
+/** Main dishes only (or user recipes without a category). */
+export const isMain = (r: Recipe) => r.tags.some(t => MAINS.has(t)) || !r.tags.some(t => CATS.has(t));
 
 export function suggest(n: number, recipes: Recipe[], history: PlannedMeal[], stock: Map<string, StockItem>,
   cat: Catalogue, exclude = new Set<string>(), month = new Date().getMonth()): Recipe[] {
   const last = new Map<string, number>();
   history.forEach(m => m.recipeId && m.date && last.set(m.recipeId, Math.max(last.get(m.recipeId) || 0, Date.parse(m.date))));
-  const season = SEASON[month];
-  const scored = recipes.filter(r => !exclude.has(r.id)).map(r => {
+  const season = SEASON_OF_MONTH[month];
+  const scored = recipes.filter(r => !exclude.has(r.id) && isMain(r)).map(r => {
     const days = last.has(r.id) ? (Date.now() - last.get(r.id)!) / 864e5 : 60;
     const useUp = r.lines.filter(l => {
       const s = l.ingredientId && stock.get(l.ingredientId);
@@ -20,7 +24,7 @@ export function suggest(n: number, recipes: Recipe[], history: PlannedMeal[], st
     return { r, score };
   }).sort((a, b) => b.score - a.score);
   // variety: alternate veggie / not when possible, about half veggie
-  const veg = scored.filter(x => x.r.tags.includes('veggie')), other = scored.filter(x => !x.r.tags.includes('veggie'));
+  const veg = scored.filter(x => x.r.tags.includes('vege')), other = scored.filter(x => !x.r.tags.includes('vege'));
   const out: Recipe[] = [];
   while (out.length < n && (veg.length || other.length)) {
     const pick = (out.length % 2 === 0 ? veg.shift() || other.shift() : other.shift() || veg.shift())!;

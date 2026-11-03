@@ -18,8 +18,9 @@ export interface PlannedMeal {
   extra?: number;             // extra servings cooked for leftovers
 }
 export interface StockItem { ingredientId: string; level: Level; qty?: number; unit?: string; alwaysHave?: boolean; updatedAt: number }
+/** stage 'proposal' = manual extra on the proposed list · 'cart' (or missing, v0.1) = in the cart. */
 export interface ListItem {
-  key: string; ingredientId?: string | null; text: string; qty?: number | null; unit?: string | null;
+  key: string; stage?: 'proposal' | 'cart'; ingredientId?: string | null; text: string; qty?: number | null; unit?: string | null;
   aisle: string; ticked: boolean; manual?: boolean; edited?: boolean; mealIds?: string[]; note?: string;
 }
 export interface KV { key: string; value: unknown }

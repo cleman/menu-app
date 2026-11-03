@@ -63,6 +63,8 @@ export function applyStock(needs: Need[], stock: Map<string, StockItem>): Need[]
       else res.note = 'low at home';
     }
     if (res.qty != null && res.unit) res.qty = roundUp(res.qty, toBase(1, res.unit).family);
+    // fresh herbs measured in spoons are bought by the bunch (~150 ml chopped per bunch)
+    if (res.aisle === 'veg' && res.unit === 'ml' && res.qty != null) res = { ...res, qty: Math.max(1, Math.ceil(res.qty / 150)), unit: 'bunch' };
     return res;
   });
 }
@@ -89,3 +91,23 @@ export function listAsText(items: ListItem[], aisleName: (id: string) => string)
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Proposal → cart. Same ingredient + same unit family: quantities add up; otherwise a new line. */
+export function addToCart(cart: ListItem[], items: ListItem[]): ListItem[] {
+  const out = cart.map(c => ({ ...c }));
+  for (const it of items) {
+    const same = out.find(c => (it.ingredientId ? c.ingredientId === it.ingredientId : c.text.toLowerCase() === it.text.toLowerCase())
+      && (c.qty == null || it.qty == null || toBase(1, c.unit).family === toBase(1, it.unit).family));
+    if (same) {
+      if (same.qty != null && it.qty != null) {
+        const sum = toBase(same.qty, same.unit).qty + toBase(it.qty, it.unit).qty, fam = toBase(1, same.unit).family;
+        Object.assign(same, { qty: sum, unit: baseUnit(fam) });
+      } else if (same.qty == null) Object.assign(same, { qty: it.qty, unit: it.unit });
+      same.ticked = false;
+    } else out.push({ ...it, key: 'c:' + (it.ingredientId || it.text.toLowerCase()) + ':' + toBase(1, it.unit).family, stage: 'cart', ticked: false });
+  }
+  return out;
+}
+
+export const needToItem = (n: Need): ListItem =>
+  ({ key: n.key, ingredientId: n.ingredientId, text: n.name, qty: n.qty, unit: n.unit, aisle: n.aisle, ticked: false, mealIds: n.mealIds, note: n.note });

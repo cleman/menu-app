@@ -57,6 +57,14 @@ export function roundUp(qty: number, family: Family): number {
   return Math.ceil(qty - 1e-9);
 }
 
+const LABEL: Record<string, [string, string]> = {
+  tbsp: ['c. à s.', 'c. à s.'], tsp: ['c. à c.', 'c. à c.'], cup: ['tasse', 'tasses'], can: ['boîte', 'boîtes'],
+  bunch: ['botte', 'bottes'], clove: ['gousse', 'gousses'], slice: ['tranche', 'tranches'], pinch: ['pincée', 'pincées'],
+  handful: ['poignée', 'poignées'], pack: ['sachet', 'sachets'], jar: ['pot', 'pots'],
+};
+export const unitLabel = (u: string, plural = false) => LABEL[u]?.[plural ? 1 : 0] ?? u;
+
+/** French display: "1,5 kg", "2 c. à s.", "3 gousses". */
 export function formatQty(qty: number | null | undefined, unit?: string | null): string {
   if (qty == null || !isFinite(qty)) return '';
   let q = qty, u = unit || '';
@@ -65,10 +73,11 @@ export function formatQty(qty: number | null | undefined, unit?: string | null):
   if (u === 'ml' && q > 0 && q < 60) {           // small volumes read better as spoons
     if (q % 15 === 0) { q = q / 15; u = 'tbsp'; } else if (q % 5 === 0) { q = q / 5; u = 'tsp'; }
   }
-  const n = Number.isInteger(q) ? String(q) : q.toFixed(q < 10 ? 2 : 1).replace(/\.?0+$/, '');
+  const n = (Number.isInteger(q) ? String(q) : q.toFixed(q < 10 ? 2 : 1).replace(/\.?0+$/, '')).replace('.', ',');
   if (u === 'pc' || !u) return n;
-  const plural = q > 1 && PLURAL[u] ? PLURAL[u] : u;
-  return `${n} ${plural}`;
+  return `${n} ${unitLabel(u, q > 1)}`;
 }
 
-const PLURAL: Record<string, string> = { can: 'cans', bunch: 'bunches', clove: 'cloves', slice: 'slices', pinch: 'pinches', handful: 'handfuls', pack: 'packs', jar: 'jars', cup: 'cups' };
+/** Units offered when editing a size in the cart. */
+export const EDIT_UNITS: [string, string][] = [['pc', 'pièce(s)'], ['g', 'g'], ['kg', 'kg'], ['ml', 'ml'], ['cl', 'cl'], ['l', 'l'],
+  ['pack', 'sachet/paquet'], ['can', 'boîte'], ['jar', 'pot'], ['bunch', 'botte']];

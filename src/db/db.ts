@@ -4,7 +4,7 @@ import type { KV, ListItem, Period, PlannedMeal, Recipe, Snapshot, StockItem } f
 import type { Ingredient } from '../domain/catalogue';
 import { Catalogue, parseCatalogue } from '../domain/catalogue';
 import { parseText } from '../domain/parser';
-import { STARTERS } from '../data/recipes';
+import { migrateTags, parseBank } from '../domain/recipeText';
 
 class MenuDB extends Dexie {
   recipes!: Table<Recipe, string>;
@@ -35,13 +35,27 @@ export async function getKV<T>(key: string, def: T): Promise<T> {
 }
 export const setKV = (key: string, value: unknown) => db.kv.put({ key, value });
 
+const BANK_VERSION = 2;
+
+/** Loads the built-in recipe bank (lazy chunk). v0.1 English starters are replaced unless used in a plan. */
 export async function seedIfEmpty(cat: Catalogue) {
-  if (await getKV('seeded', false)) return;
+  if ((await getKV('bankVersion', 0)) >= BANK_VERSION) return;
+  const files = import.meta.glob('../data/bank/*.ts', { import: 'default' });
+  const texts = await Promise.all(Object.values(files).map(f => f() as Promise<string>));
   const now = Date.now();
-  await db.recipes.bulkPut(STARTERS.map(s => ({ id: uid(), title: s.title, servings: s.servings, minutes: s.minutes,
-    tags: s.tags, steps: s.steps, source: 'starter' as const, updatedAt: now, lines: parseText(s.ingredients, cat) })));
-  await db.stock.bulkPut(['salt', 'pepper-black', 'olive-oil'].map(id => ({ ingredientId: id, level: 'have' as const, alwaysHave: true, updatedAt: now })));
-  await setKV('seeded', true);
+  const used = new Set((await db.meals.toArray()).map(m => m.recipeId));
+  const old = await db.recipes.toArray();
+  await db.recipes.bulkDelete(old.filter(r => r.source === 'starter' && !used.has(r.id)).map(r => r.id));
+  await db.recipes.bulkPut(old.filter(r => r.source !== 'starter' || used.has(r.id)).map(r => ({ ...r, tags: migrateTags(r.tags) })));
+  const have = new Set((await db.recipes.toArray()).map(r => r.title.toLowerCase()));
+  const bank = texts.flatMap(parseBank).filter(d => !have.has(d.title.toLowerCase()));
+  await db.recipes.bulkPut(bank.map(d => ({ id: uid(), title: d.title, servings: d.servings, minutes: d.minutes, tags: d.tags,
+    steps: d.steps.join('\n'), source: 'starter' as const, updatedAt: now, lines: parseText(d.ingredients.join('\n'), cat) })));
+  if (!(await getKV('seeded', false))) {
+    await db.stock.bulkPut(['salt', 'pepper-black', 'olive-oil'].map(id => ({ ingredientId: id, level: 'have' as const, alwaysHave: true, updatedAt: now })));
+    await setKV('seeded', true);
+  }
+  await setKV('bankVersion', BANK_VERSION);
 }
 
 // ---------- backup: export / replace-import / 3 rolling snapshots ----------

@@ -2,31 +2,36 @@ import { useContext, useState } from 'preact/hooks';
 import { db } from '../db/db';
 import { addMeal } from '../db/ops';
 import type { Recipe } from '../db/types';
-import { norm } from '../domain/catalogue';
 import { lineAmount } from '../domain/parser';
+import { filterRecipes, tagLabel, type RecipeDraft, type RecipeFilter } from '../domain/recipeText';
 import { today } from '../domain/dates';
 import { formatQty } from '../domain/units';
-import { CatCtx, Empty, Sheet, Stepper, toast, useLive } from './kit';
-import { RecipeEdit } from './RecipeEdit';
+import { CatCtx, emptyFilter, Empty, FilterBar, Loading, Sheet, Stepper, toast, useLive } from './kit';
+import { PasteSheet, RecipeEdit } from './RecipeEdit';
 
-const FILTERS = ['veggie', 'quick', 'batch', 'autumn', 'winter', 'spring', 'summer'];
-
-export function RecipesScreen() {
-  const recipes = useLive(() => db.recipes.orderBy('title').toArray(), []) || [];
-  const [q, setQ] = useState(''); const [tag, setTag] = useState('');
-  const [open, setOpen] = useState<Recipe | null>(null); const [edit, setEdit] = useState<Recipe | 'new' | null>(null);
-  const nq = norm(q);
-  const shown = recipes.filter(r => (!tag || r.tags.includes(tag)) && (!nq || norm(r.title).includes(nq)
-    || r.lines.some(l => norm(l.raw).includes(nq))));
+export function RecipesScreen({ shared, clearShared }: { shared?: RecipeDraft | null; clearShared?: () => void }) {
+  const recipes = useLive(() => db.recipes.toArray(), []);
+  const [f, setF] = useState<RecipeFilter>(emptyFilter());
+  const [open, setOpen] = useState<string | null>(null);
+  const [edit, setEdit] = useState<Recipe | 'new' | null>(null);
+  const [draft, setDraft] = useState<RecipeDraft | null>(null);
+  const [paste, setPaste] = useState(false);
+  if (!recipes) return <section class="screen"><div class="topbar"><h1>Recettes</h1></div><Loading /></section>;
+  const shown = filterRecipes(recipes, f);
+  const current = recipes.find(r => r.id === open);
+  const d = shared || draft;
   return <section class="screen">
-    <div class="topbar"><h1>Recipes</h1><button class="primary sm" onClick={() => setEdit('new')}>+ New</button></div>
-    <input class="search" type="search" placeholder="Search a recipe or an ingredient…" value={q} onInput={e => setQ(e.currentTarget.value)} />
-    <div class="chips scroll">{FILTERS.map(t => <button class={'chip' + (tag === t ? ' on' : '')} aria-pressed={tag === t} onClick={() => setTag(tag === t ? '' : t)}>{t}</button>)}</div>
-    {!shown.length && <Empty icon="📖" title="No recipe found"><p>Try another word, or add your own recipe.</p></Empty>}
-    <ul class="rcards">{shown.map(r => <li><button onClick={() => setOpen(r)}>
-      <b>{r.title}</b><small>{r.minutes ? `${r.minutes} min · ` : ''}{r.servings} servings{r.tags.length ? ' · ' + r.tags.join(', ') : ''}</small></button></li>)}</ul>
-    {open && <RecipeView r={recipes.find(x => x.id === open.id) || open} onEdit={() => { setEdit(open); setOpen(null); }} onClose={() => setOpen(null)} />}
-    {edit && <RecipeEdit recipe={edit === 'new' ? undefined : edit} onClose={() => setEdit(null)} />}
+    <div class="topbar"><h1>Recettes</h1>
+      <button class="secondary sm" onClick={() => setPaste(true)}>📋 Coller</button>
+      <button class="primary sm" onClick={() => setEdit('new')}>+ Nouvelle</button></div>
+    <FilterBar f={f} set={setF} count={shown.length} />
+    {!shown.length && <Empty icon="📖" title="Aucune recette"><p>Essayez un autre mot ou d'autres filtres, ou ajoutez votre recette.</p></Empty>}
+    <ul class="rcards">{shown.map(r => <li><button onClick={() => setOpen(r.id)}>
+      <b>{r.title}</b><small>{r.minutes ? `${r.minutes} min · ` : ''}{r.servings} pers.{r.tags.length ? ' · ' + r.tags.map(tagLabel).join(', ') : ''}{r.source === 'user' ? ' · ✎ perso' : ''}</small></button></li>)}</ul>
+    {current && <RecipeView r={current} onEdit={() => { setEdit(current); setOpen(null); }} onClose={() => setOpen(null)} />}
+    {paste && <PasteSheet onDone={dr => { setPaste(false); setDraft(dr); }} onClose={() => setPaste(false)} />}
+    {(edit || d) && <RecipeEdit recipe={edit && edit !== 'new' ? edit : undefined} draft={d || undefined}
+      onClose={() => { setEdit(null); setDraft(null); clearShared?.(); }} />}
   </section>;
 }
 
@@ -35,14 +40,14 @@ function RecipeView({ r, onEdit, onClose }: { r: Recipe; onEdit: () => void; onC
   const addToPlan = async () => {
     const t = today(); const periods = await db.periods.orderBy('start').toArray();
     const p = periods.find(x => x.start <= t && x.end >= t) || periods.find(x => x.start > t) || periods[periods.length - 1];
-    if (!p) { toast('Create a plan first (Plan tab)'); return; }
-    const m = await addMeal(p.id, r.id); toast(`Added to ideas of your plan`, () => db.meals.delete(m.id)); onClose();
+    if (!p) { toast("Créez d'abord un plan (onglet Plan)"); return; }
+    const m = await addMeal(p.id, r.id); toast('Ajouté aux idées du plan', () => db.meals.delete(m.id)); onClose();
   };
-  const del = async () => { await db.recipes.delete(r.id); toast('Recipe deleted', () => db.recipes.put(r)); onClose(); };
+  const del = async () => { await db.recipes.delete(r.id); toast('Recette supprimée', () => db.recipes.put(r)); onClose(); };
   return <Sheet title={r.title} onClose={onClose}>
-    <div class="row gap wrap"><button class="primary" onClick={addToPlan}>+ Add to plan</button>
-      <button class="secondary" onClick={onEdit}>Edit</button><button class="ghost" onClick={del}>Delete</button></div>
-    <div class="field"><label>Servings</label><Stepper value={servings} onChange={setServings} label="servings" /></div>
+    <div class="row gap wrap"><button class="primary" onClick={addToPlan}>+ Au plan</button>
+      <button class="secondary" onClick={onEdit}>Modifier</button><button class="ghost" onClick={del}>Supprimer</button></div>
+    <div class="field"><label>Personnes</label><Stepper value={servings} onChange={setServings} label="personnes" /></div>
     <RecipeBody r={r} servings={servings} />
   </Sheet>;
 }
@@ -51,11 +56,11 @@ export function RecipeBody({ r, servings }: { r: Recipe; servings: number }) {
   const { cat } = useContext(CatCtx);
   const f = servings / (r.servings || 1);
   return <div class="rbody">
-    {r.minutes ? <p class="muted">{r.minutes} min</p> : null}
-    <h4>Ingredients</h4>
+    {r.minutes ? <p class="muted">{r.minutes} min{r.tags.length ? ' · ' + r.tags.map(tagLabel).join(', ') : ''}</p> : null}
+    <h4>Ingrédients</h4>
     <ul class="ing">{r.lines.map(l => { const a = lineAmount(l);
       return <li><span>{l.ingredientId ? cat.name(l.ingredientId, l.raw) : l.raw}{l.note ? <small> ({l.note})</small> : null}</span>
         <b>{a != null ? formatQty(Math.round(a * f * 100) / 100, l.unit) : ''}</b></li>; })}</ul>
-    {r.steps && <><h4>Steps</h4><ol class="steps">{r.steps.split('\n').filter(Boolean).map(s => <li>{s}</li>)}</ol></>}
+    {r.steps && <><h4>Étapes</h4><ol class="steps">{r.steps.split('\n').filter(Boolean).map(s => <li>{s}</li>)}</ol></>}
   </div>;
 }

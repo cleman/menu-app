@@ -15,8 +15,14 @@ export function norm(s: string): string {
 export const singular = (s: string) =>
   s.split(' ').map(w => /oes$/.test(w) ? w.slice(0, -2) : (w.length > 3 && /[sx]$/.test(w) && !/ss$/.test(w) ? w.slice(0, -1) : w)).join(' ');
 
-export function parseCatalogue(raw = RAW_CATALOGUE): Ingredient[] {
-  return raw.trim().split('\n').map(line => {
+// Extra ingredients added alongside recipe-bank files (src/data/extra/<theme>.ts, same line format).
+const EXTRA = Object.values(import.meta.glob('../data/extra/*.ts', { eager: true, import: 'default' }) as Record<string, string>).join('\n');
+
+export function parseCatalogue(raw = RAW_CATALOGUE + '\n' + EXTRA): Ingredient[] {
+  const seen = new Set<string>();
+  return raw.trim().split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//')).filter(l => {
+    const id = l.split('|')[0]; if (seen.has(id)) return false; seen.add(id); return true;
+  }).map(line => {
     const [id, en, fr, aisle, piece, extra] = line.split('|');
     return { id, en, fr, aisle, pieceG: piece ? Number(piece) : undefined,
       aliases: (extra || '').split(';').filter(Boolean) };
@@ -61,11 +67,11 @@ export class Catalogue {
   }
 
   name(id: string | null | undefined, fallback = ''): string {
-    const n = (id && this.byId.get(id)?.en) || fallback;
+    const n = (id && this.byId.get(id)?.fr) || fallback;
     return n.charAt(0).toUpperCase() + n.slice(1);
   }
   aisle(id: string | null | undefined): string { return (id && this.byId.get(id)?.aisle) || 'other'; }
-  all(): Ingredient[] { return [...this.byId.values()].sort((a, b) => a.en.localeCompare(b.en)); }
+  all(): Ingredient[] { return [...this.byId.values()].sort((a, b) => a.fr.localeCompare(b.fr, 'fr')); }
 }
 
 export const slug = (s: string) => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');

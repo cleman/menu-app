@@ -7,5 +7,5 @@ export const diffDays = (a: string, b: string) => Math.round((parse(b).getTime()
 export function range(start: string, end: string): string[] {
   const out: string[] = []; for (let d = start; d <= end; d = addDays(d, 1)) out.push(d); return out;
 }
-export const label = (s: string) => parse(s).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-export const short = (s: string) => parse(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+export const label = (s: string) => parse(s).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+export const short = (s: string) => parse(s).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });

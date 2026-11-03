@@ -8,7 +8,9 @@ export default defineConfig({
     registerType: 'autoUpdate',
     includeAssets: ['icon-192.png', 'icon-512.png'],
     manifest: {
-      name: 'Menu — meal planner', short_name: 'Menu', start_url: './', scope: './', display: 'standalone',
+      name: 'Menu — planificateur de repas', short_name: 'Menu', lang: 'fr', description: 'Planifier ses repas, faire ses courses, savoir ce qu’on a à la maison.',
+      start_url: './', scope: './', display: 'standalone', id: './',
+      share_target: { action: './?share=1', method: 'GET', params: { title: 'title', text: 'text', url: 'url' } },
       background_color: '#faf6f0', theme_color: '#c8553d', orientation: 'portrait',
       icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
               { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
