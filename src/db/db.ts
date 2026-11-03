@@ -1,0 +1,72 @@
+// The only database layer (Dexie / IndexedDB). UI talks to it through these helpers.
+import Dexie, { type Table } from 'dexie';
+import type { KV, ListItem, Period, PlannedMeal, Recipe, Snapshot, StockItem } from './types';
+import type { Ingredient } from '../domain/catalogue';
+import { Catalogue, parseCatalogue } from '../domain/catalogue';
+import { parseText } from '../domain/parser';
+import { STARTERS } from '../data/recipes';
+
+class MenuDB extends Dexie {
+  recipes!: Table<Recipe, string>;
+  periods!: Table<Period, string>;
+  meals!: Table<PlannedMeal, string>;
+  stock!: Table<StockItem, string>;
+  list!: Table<ListItem, string>;
+  ingredients!: Table<Ingredient, string>;   // user-created only
+  kv!: Table<KV, string>;
+  snapshots!: Table<Snapshot, number>;
+  constructor() {
+    super('menu-planner');
+    this.version(1).stores({
+      recipes: 'id, title', periods: 'id, start', meals: 'id, periodId, date, recipeId',
+      stock: 'ingredientId', list: 'key', ingredients: 'id', kv: 'key', snapshots: '++id, at',
+    });
+  }
+}
+export const db = new MenuDB();
+export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+
+export async function loadCatalogue(): Promise<Catalogue> {
+  return new Catalogue([...parseCatalogue(), ...(await db.ingredients.toArray())]);
+}
+
+export async function getKV<T>(key: string, def: T): Promise<T> {
+  const r = await db.kv.get(key); return r ? (r.value as T) : def;
+}
+export const setKV = (key: string, value: unknown) => db.kv.put({ key, value });
+
+export async function seedIfEmpty(cat: Catalogue) {
+  if (await getKV('seeded', false)) return;
+  const now = Date.now();
+  await db.recipes.bulkPut(STARTERS.map(s => ({ id: uid(), title: s.title, servings: s.servings, minutes: s.minutes,
+    tags: s.tags, steps: s.steps, source: 'starter' as const, updatedAt: now, lines: parseText(s.ingredients, cat) })));
+  await db.stock.bulkPut(['salt', 'pepper-black', 'olive-oil'].map(id => ({ ingredientId: id, level: 'have' as const, alwaysHave: true, updatedAt: now })));
+  await setKV('seeded', true);
+}
+
+// ---------- backup: export / replace-import / 3 rolling snapshots ----------
+const TABLES = ['recipes', 'periods', 'meals', 'stock', 'list', 'ingredients', 'kv'] as const;
+
+export async function exportJSON(): Promise<string> {
+  const data: Record<string, unknown> = { app: 'menu-planner', version: 1, exportedAt: new Date().toISOString() };
+  for (const t of TABLES) data[t] = await (db as any)[t].toArray();
+  return JSON.stringify(data);
+}
+
+export async function importJSON(text: string) {
+  const data = JSON.parse(text);
+  if (data.app !== 'menu-planner' || !Array.isArray(data.recipes)) throw new Error('Not a menu-planner backup file');
+  await snapshot(true);
+  await db.transaction('rw', TABLES.map(t => (db as any)[t]), async () => {
+    for (const t of TABLES) { await (db as any)[t].clear(); await (db as any)[t].bulkPut(data[t] || []); }
+  });
+}
+
+/** Keep the 3 most recent snapshots inside the app (undo for imports / mistakes). Daily, or forced. */
+export async function snapshot(force = false) {
+  const last = await db.snapshots.orderBy('at').last();
+  if (!force && last && Date.now() - last.at < 864e5) return;
+  await db.snapshots.add({ at: Date.now(), data: await exportJSON() });
+  const all = await db.snapshots.orderBy('at').toArray();
+  if (all.length > 3) await db.snapshots.bulkDelete(all.slice(0, all.length - 3).map(s => s.id!));
+}

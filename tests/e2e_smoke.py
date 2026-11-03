@@ -1,0 +1,37 @@
+import time
+from playwright.sync_api import sync_playwright
+import sys; S=(sys.argv[1] if len(sys.argv)>1 else '/tmp/claude-0/shots')+'/'
+errs=[]
+with sync_playwright() as p:
+    b=p.chromium.launch(executable_path='/opt/pw-browsers/chromium-1243/chrome-linux64/chrome')
+    pg=b.new_page(viewport={'width':390,'height':844}, device_scale_factor=2, is_mobile=True, has_touch=True)
+    pg.on('console', lambda m: m.type=='error' and errs.append(m.text)); pg.on('pageerror', lambda e: errs.append(str(e)))
+    pg.on('dialog', lambda d: d.accept())
+    t0=time.time()
+    pg.goto('http://localhost:4173/'); pg.get_by_role('button', name='Start a plan').click()
+    pg.get_by_role('button', name='Create plan').click()
+    pg.get_by_role('button', name='✨ Suggest meals').click(); pg.get_by_role('button', name='Suggest', exact=False).last.click()
+    pg.locator('button.add').first.click(); pg.locator('.plist button').first.click()   # 2 taps: lunch today
+    pg.get_by_role('button', name='+ Add').first.click(); pg.get_by_placeholder('Search recipes').fill('dal'); pg.locator('.plist button').first.click()
+    print('plan built in %.1fs'%(time.time()-t0)); pg.wait_for_timeout(600); pg.screenshot(path=S+'1-plan.png')
+    pg.locator('.meal').nth(1).click(); pg.wait_for_timeout(200); pg.screenshot(path=S+'2-meal.png')
+    pg.get_by_role('button', name='✓ Cooked').click(); pg.wait_for_timeout(300)
+    pg.locator('.tabs button').nth(2).click(); pg.get_by_role('button', name='Check what I have first').click()
+    pg.wait_for_timeout(200); pg.screenshot(path=S+'3-check.png')
+    rows=pg.locator('.check-rows li'); print('check rows', rows.count())
+    if rows.count(): rows.first.get_by_role('radio', name='Out').click()
+    pg.get_by_role('button', name='Done — update my list').click(); pg.wait_for_timeout(500)
+    pg.screenshot(path=S+'4-list.png', full_page=True)
+    print('list items', pg.locator('.items li').count())
+    cbs=pg.locator('.aisle .items input[type=checkbox]'); cbs.nth(0).check(); cbs.nth(1).check()
+    pg.get_by_role('button', name='Done shopping', exact=False).click(); pg.get_by_role('button', name='Put away').click(); pg.wait_for_timeout(400)
+    pg.locator('.tabs button').nth(3).click(); pg.wait_for_timeout(300); pg.screenshot(path=S+'5-home.png', full_page=True)
+    print('home items', pg.locator('.items li').count())
+    pg.locator('.tabs button').nth(1).click(); pg.get_by_role('button', name='+ New').click()
+    pg.get_by_placeholder("e.g. Grandma").fill('Gratin dauphinois')
+    pg.locator('textarea').first.fill("1 kg de pommes de terre\n50 cl de crème liquide\n2 gousses d'ail\n100 g de gruyère râpé\nune pincée de noix de muscade\nsel, poivre")
+    pg.wait_for_timeout(200); pg.screenshot(path=S+'6-recipe.png', full_page=True)
+    pg.get_by_role('button', name='Save recipe').click()
+    pg.emulate_media(color_scheme='dark'); pg.locator('.tabs button').nth(0).click(); pg.wait_for_timeout(300); pg.screenshot(path=S+'7-dark.png')
+    print('ERRORS', errs)
+    b.close()

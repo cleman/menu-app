@@ -1,0 +1,6 @@
+A=coach
+B=firstprinciples
+C=outsider
+D=expansionist
+E=contrarian
+F=executor
