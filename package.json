@@ -1,6 +1,6 @@
 {
   "name": "menu-planner",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Personal offline meal planner: recipes, flexible-period plan, stock-aware shopping list.",
   "scripts": {
     "dev": "vite --host",
@@ -10,10 +10,12 @@
   },
   "dependencies": {
     "dexie": "^4.4.7",
+    "jspdf": "^4.2.1",
     "preact": "^11.1.0"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.6",
+    "fake-indexeddb": "^6.2.8",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "vite-plugin-pwa": "^2.0.0",

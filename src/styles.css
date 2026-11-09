@@ -148,3 +148,15 @@ textarea { resize: vertical; line-height: 1.5; } input.short { width: 140px; fle
 .tagrow { margin: 6px 0; } .tagrow .chips { margin-top: 2px; }
 .addrow { margin: 12px 0; }
 .cue.small { font-size: .9rem; }
+
+/* ---- Menu page (read-only plan view, v0.3) ---- */
+.menupage { position: fixed; inset: 0; z-index: 30; background: var(--bg); overflow-y: auto; padding: 0 12px 150px; }
+.mgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin: 8px 0; }
+.mday { background: var(--card); border-radius: var(--r); padding: 10px 12px; box-shadow: var(--shadow); }
+.mday .dlabel { font-weight: 700; margin-bottom: 4px; } .mday .dlabel::first-letter { text-transform: uppercase; }
+.mslot { display: flex; gap: 8px; border-top: 1px solid var(--line); padding: 6px 0; } .mtitle { padding: 1px 0; }
+.mideas { margin: 6px 0 0; padding-left: 20px; }
+.menufoot { position: fixed; left: 0; right: 0; bottom: 0; background: var(--bg); border-top: 1px solid var(--line); padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+@media (min-width: 700px) { .menufoot { flex-direction: row; align-items: center; justify-content: space-between; } }
+@media print { .menufoot, .topbar button { display: none; } .menupage { position: static; overflow: visible; } }

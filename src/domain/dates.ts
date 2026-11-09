@@ -9,3 +9,4 @@ export function range(start: string, end: string): string[] {
 }
 export const label = (s: string) => parse(s).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
 export const short = (s: string) => parse(s).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+export const longLabel = (s: string) => parse(s).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });

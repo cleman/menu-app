@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState } from 'preact/hooks';
 import { db, exportJSON, getKV, importJSON, setKV } from '../db/db';
+import { normalize } from '../domain/backup';
 import { CatCtx, Sheet, Stepper, toast, useLive } from './kit';
 
 const DAY = 864e5;
@@ -45,12 +46,19 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
   const [persisted, setPersisted] = useState<boolean | null>(null);
   useEffect(() => { navigator.storage?.persisted?.().then(setPersisted); }, []);
 
-  const doImport = (e: Event) => {
-    const f = (e.target as HTMLInputElement).files?.[0]; if (!f) return;
-    if (!confirm("Remplacer toutes les données de l'app par cette sauvegarde ? (Une copie des données actuelles est gardée.)")) return;
-    f.text().then(importJSON).then(() => { reloadCat(); toast('Sauvegarde restaurée'); }).catch(err => toast("Échec de l'import : " + err.message));
+  const [file, setFile] = useState<string | null>(null);   // text of a chosen backup file, waiting for "merge or replace"
+  const pickFile = (e: Event) => {
+    const input = e.target as HTMLInputElement, f = input.files?.[0]; if (!f) return;
+    f.text().then(t => { normalize(JSON.parse(t)); setFile(t); }).catch(err => toast("Fichier refusé : " + err.message)).finally(() => { input.value = ''; });
   };
-  const restore = async (data: string) => { if (confirm('Revenir à cette copie automatique ?')) { await importJSON(data); reloadCat(); toast('Copie restaurée'); } };
+  const doImport = async (mode: 'merge' | 'replace') => {
+    const t = file!; setFile(null);
+    try {
+      const st = await importJSON(t, mode); reloadCat();
+      toast(mode === 'merge' ? `Fusion terminée : ${st!.added} ajouté(s), ${st!.updated} mis à jour` : 'Sauvegarde restaurée');
+    } catch (err: any) { toast("Échec de l'import : " + err.message); }
+  };
+  const restore = async (data: string) => { if (confirm('Revenir à cette copie automatique ?')) { await importJSON(data, 'replace'); reloadCat(); toast('Copie restaurée'); } };
 
   return <Sheet title="Réglages" onClose={onClose}>
     <div class="field"><label>Nombre de personnes par défaut</label>{hh != null && <Stepper value={hh} onChange={n => setKV('household', n)} label="personnes" />}
@@ -62,11 +70,18 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
       {persisted === true ? ' ✓ Stockage protégé par le navigateur.' : persisted === false ? " ⚠ Le navigateur peut effacer les données s'il manque de place : installez l'app et faites des sauvegardes." : ''}</p>
     <p class="muted">Dernière sauvegarde : {last ? new Date(last).toLocaleDateString('fr-FR') : 'jamais'}</p>
     <div class="row gap wrap"><button class="primary" onClick={downloadBackup}>💾 Sauvegarder (fichier)</button>
-      <label class="button secondary">📂 Restaurer un fichier<input type="file" accept="application/json,.json" hidden onChange={doImport} /></label></div>
+      <label class="button secondary">📂 Restaurer un fichier<input type="file" accept="application/json,.json" hidden onChange={pickFile} /></label></div>
     {snaps.length > 0 && <><h4>Copies automatiques (3 dernières)</h4>
       <ul class="rlist">{snaps.map(s => <li><span>{new Date(s.at).toLocaleString('fr-FR')}</span><button class="sm ghost" onClick={() => restore(s.data)}>Restaurer</button></li>)}</ul></>}
     <h4>Ajouter une recette depuis Chrome</h4>
     <p class="muted small">Sur une page de recette : sélectionnez le texte de la recette (appui long, puis étendez la sélection) → <b>Partager</b> → <b>Menu</b>. L'app s'ouvre avec la recette pré-remplie. Fonctionne une fois l'app installée.</p>
-    <p class="muted small">Menu · v0.2 · hors ligne</p>
+    <p class="muted small">Menu · v0.3 · hors ligne</p>
+    {file && <Sheet title="Restaurer cette sauvegarde" onClose={() => setFile(null)}>
+      <p><b>Fusionner</b> (conseillé) : ajoute les données du fichier à celles de cet appareil. Rien n'est supprimé ; si une recette ou un produit existe des deux côtés, la version la plus récente est gardée.</p>
+      <p><b>Remplacer</b> : efface les données de cet appareil et reprend exactement celles du fichier.</p>
+      <p class="muted small">Dans les deux cas, une copie automatique des données actuelles est gardée avant.</p>
+      <div class="row gap wrap"><button class="primary" onClick={() => doImport('merge')}>Fusionner</button>
+        <button class="secondary" onClick={() => doImport('replace')}>Remplacer tout</button></div>
+    </Sheet>}
   </Sheet>;
 }

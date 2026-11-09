@@ -5,9 +5,10 @@ import { diffDays, label, range, short, today } from '../domain/dates';
 import { Empty, Loading, useLive } from './kit';
 import { FillSheet, MealMenu, PeriodDialog, ReviewSheet, SlotPicker } from './PlanSheets';
 import { SettingsSheet } from './Settings';
+import { MenuView } from './MenuView';
 
 type S = { k: 'slot'; date?: string; slot?: Slot } | { k: 'meal'; id: string } | { k: 'period'; next?: boolean }
-  | { k: 'fill' } | { k: 'review' } | { k: 'settings' } | null;
+  | { k: 'fill' } | { k: 'review' } | { k: 'settings' } | { k: 'menu' } | null;
 
 export function PlanScreen({ goList }: { goList: () => void }) {
   const periods = useLive(() => db.periods.orderBy('start').toArray(), []);
@@ -33,6 +34,7 @@ export function PlanScreen({ goList }: { goList: () => void }) {
     {sheet?.k === 'fill' && p && <FillSheet period={p} meals={meals} onClose={close} />}
     {sheet?.k === 'review' && p && <ReviewSheet period={p} meals={meals} recipes={recipes} onNext={() => setSheet({ k: 'period', next: true })} onCreated={np => { setPid(np.id); close(); }} onClose={close} />}
     {sheet?.k === 'settings' && <SettingsSheet onClose={close} />}
+    {sheet?.k === 'menu' && p && <MenuView period={p} meals={meals} recipes={recipes} onClose={close} />}
   </>;
 
   if (!p) return <section class="screen">
@@ -59,6 +61,7 @@ export function PlanScreen({ goList }: { goList: () => void }) {
 
     <div class="row gap actions">
       <button class="secondary" onClick={() => setSheet({ k: 'fill' })}>✨ Proposer</button>
+      <button class="secondary" onClick={() => setSheet({ k: 'menu' })}>📄 Menu</button>
       <button class="secondary" disabled={!notListed} onClick={goList}>🛒 Courses ({notListed})</button>
       {isLast && !ended && <button class="ghost" onClick={() => setSheet({ k: 'period', next: true })}>+ Plan suivant</button>}
     </div>

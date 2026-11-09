@@ -14,16 +14,19 @@ Design source: council-runs/meal-planner-20261029/design-v2.md (+ verdict.md).
   - stock.ts       putAway · cookDeduct (opt-in) · isStale (>30 d)
   - suggest.ts     main dishes only (isMain) · not-recent + use-it-up + season · alternate vege
   - dates.ts       'YYYY-MM-DD' helpers, fr-FR labels
+  - backup.ts      backup format v2: normalize (v1→v2, starter ids), merge(local, incoming) · DEVICE_LOCAL_KV
+  - menuLayout.ts  buildMenu(period, meals, recipes) → days (midi/soir) + ideas, for Menu page and PDF
 - src/data/
   - ingredients.ts  ~570 lines "id|en|fr|aisle|pieceG|aliases" · AISLES (13 French store sections) · PANTRY_AISLES
   - bank/*.ts       recipe bank, ~300 recipes in 6 themes (francaise, vege, monde, rapide, soupes, desserts) — format: bank/README.md
   - extra/*.ts      extra ingredients per theme (same line format)
-- src/db/  types.ts · db.ts (ONLY Dexie layer; seedIfEmpty = bank v2 + migration; export/import; 3 snapshots) · ops.ts (addMeal, removeMeal, setStatus, createPeriod+copy, fill)
+- src/db/  types.ts · db.ts (ONLY Dexie layer; seedIfEmpty = bank v2; migrate() = v0.3 one-time (starter ids); export/import replace|merge; 3 snapshots) · ops.ts (addMeal, removeMeal, setStatus, createPeriod+copy, fill)
 - src/ui/
   - App (tabs Plan/Recettes/Courses/Maison, Boundary per tab, share-target reader, Welcome) · kit (useLive, toast+Annuler, Sheet+footer, Seg, Stepper, Boundary, FilterBar)
   - PlanScreen + PlanSheets (SlotPicker: slot = 1 tap; Ideas = multi-select stays open + FilterBar · MealMenu · PeriodDialog · FillSheet · ReviewSheet)
   - RecipesScreen (+RecipeBody, FilterBar) · RecipeEdit (+PasteSheet, tag groups, parse preview, create ingredient)
   - ListScreen: Proposal (uncheck → kv proposalOff, extras stage 'proposal', CheckHome, Valider → cart + meals.listedAt) · Cart (tick, ✕, SizeSheet, share) · PutAway → stock
+  - MenuView (full-screen plan menu, opened from Plan → 📄 Menu) + menuPdf.ts (jsPDF lazy; formats A4 ↕↔, Tablette ↔↕)
   - StockScreen (+QtySheet) · Settings (Welcome, BackupBanner, SettingsSheet)
 - tests/  parser · list (+stock, cart) · recipeText · bank (validates every bank file) · e2e_smoke.py (Playwright phone flows)
 
@@ -31,13 +34,14 @@ Design source: council-runs/meal-planner-20261029/design-v2.md (+ verdict.md).
 Recipe{title, servings, minutes, tags[], lines[{ingredientId|null, raw, rawKey, qty, qty2, unit, note}], steps, source starter|user}
 Period{start,end,reviewedAt} · PlannedMeal{periodId, recipeId|label, date?, slot?, servings, extra, status, listedAt?, leftoverOf?}
 StockItem{ingredientId, level have|low|out, qty?, unit? (g/ml/pc…), alwaysHave} · ListItem{key, stage proposal|cart, ticked, qty, unit, edited}
-kv: household, onboarded, cookDeduct, lastExport, firstUse, snoozeBackup, seeded, bankVersion, proposalOff
+kv: schemaVersion, pdfFormat, household, onboarded, cookDeduct, lastExport, firstUse, snoozeBackup, seeded, bankVersion, proposalOff
 
 ## Key rules
 - Proposal scope = planned, listedAt null, not leftovers, date today..until (or no date), period not over; minus stock
 - Valider: selected → cart (merge), scoped meals get listedAt · Ranger: ticked cart items → stock "J'ai" with qty
 - Stock: J'ai without qty excludes; qty subtracts; Peu/Plus = buy; ★ basiques never listed
 - Every destructive action: toast with Annuler (8 s); snapshot before import and before Ranger
+- Starter recipe id = starterId(title) ('s-…') on every device; backup v1 files are upgraded on import; import = Merge (add, newest wins on recipes/stock) or Replace
 - Bank upgrade: bump BANK_VERSION in db.ts → unused starters replaced, user recipes kept
 
 ## Later

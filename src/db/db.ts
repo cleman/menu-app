@@ -5,6 +5,7 @@ import type { Ingredient } from '../domain/catalogue';
 import { Catalogue, parseCatalogue } from '../domain/catalogue';
 import { parseText } from '../domain/parser';
 import { migrateTags, parseBank } from '../domain/recipeText';
+import { BACKUP_VERSION, merge, normalize, starterId, type Backup, type MergeStats } from '../domain/backup';
 
 class MenuDB extends Dexie {
   recipes!: Table<Recipe, string>;
@@ -49,7 +50,7 @@ export async function seedIfEmpty(cat: Catalogue) {
   await db.recipes.bulkPut(old.filter(r => r.source !== 'starter' || used.has(r.id)).map(r => ({ ...r, tags: migrateTags(r.tags) })));
   const have = new Set((await db.recipes.toArray()).map(r => r.title.toLowerCase()));
   const bank = texts.flatMap(parseBank).filter(d => !have.has(d.title.toLowerCase()));
-  await db.recipes.bulkPut(bank.map(d => ({ id: uid(), title: d.title, servings: d.servings, minutes: d.minutes, tags: d.tags,
+  await db.recipes.bulkPut(bank.map(d => ({ id: starterId(d.title), title: d.title, servings: d.servings, minutes: d.minutes, tags: d.tags,
     steps: d.steps.join('\n'), source: 'starter' as const, updatedAt: now, lines: parseText(d.ingredients.join('\n'), cat) })));
   if (!(await getKV('seeded', false))) {
     await db.stock.bulkPut(['salt', 'pepper-black', 'olive-oil'].map(id => ({ ingredientId: id, level: 'have' as const, alwaysHave: true, updatedAt: now })));
@@ -58,22 +59,49 @@ export async function seedIfEmpty(cat: Catalogue) {
   await setKV('bankVersion', BANK_VERSION);
 }
 
-// ---------- backup: export / replace-import / 3 rolling snapshots ----------
+// ---------- backup: export / import (replace or merge) / 3 rolling snapshots / one-time migration ----------
 const TABLES = ['recipes', 'periods', 'meals', 'stock', 'list', 'ingredients', 'kv'] as const;
+const SCHEMA_VERSION = 2;
 
-export async function exportJSON(): Promise<string> {
-  const data: Record<string, unknown> = { app: 'menu-planner', version: 1, exportedAt: new Date().toISOString() };
+async function readAll(): Promise<Backup> {
+  const data: Record<string, unknown> = { app: 'menu-planner', version: BACKUP_VERSION, exportedAt: new Date().toISOString() };
   for (const t of TABLES) data[t] = await (db as any)[t].toArray();
-  return JSON.stringify(data);
+  return data as unknown as Backup;
+}
+async function writeAll(data: Backup) {
+  await db.transaction('rw', TABLES.map(t => (db as any)[t]), async () => {
+    for (const t of TABLES) { await (db as any)[t].clear(); await (db as any)[t].bulkPut((data as any)[t] || []); }
+  });
 }
 
-export async function importJSON(text: string) {
-  const data = JSON.parse(text);
-  if (data.app !== 'menu-planner' || !Array.isArray(data.recipes)) throw new Error('Not a menu-planner backup file');
+export async function exportJSON(): Promise<string> { return JSON.stringify(await readAll()); }
+
+/**
+ * v0.3 migration (runs once, before anything else): starter recipes get the same id on every device
+ * (needed for multi-device), and meals pointing to them are updated. A full snapshot is taken first.
+ */
+export async function migrate() {
+  if ((await getKV('schemaVersion', 1)) >= SCHEMA_VERSION) return;
+  if ((await db.recipes.count()) > 0) {
+    await snapshot(true);
+    const fixed = normalize(await readAll());
+    await db.transaction('rw', db.recipes, db.meals, async () => {
+      await db.recipes.clear(); await db.recipes.bulkPut(fixed.recipes);
+      await db.meals.clear(); await db.meals.bulkPut(fixed.meals);
+    });
+  }
+  await setKV('schemaVersion', SCHEMA_VERSION);
+}
+
+/** 'replace' = everything is replaced by the file · 'merge' = the file's data is added, nothing is removed. */
+export async function importJSON(text: string, mode: 'replace' | 'merge' = 'replace'): Promise<MergeStats | null> {
+  const incoming = normalize(JSON.parse(text));
   await snapshot(true);
-  await db.transaction('rw', TABLES.map(t => (db as any)[t]), async () => {
-    for (const t of TABLES) { await (db as any)[t].clear(); await (db as any)[t].bulkPut(data[t] || []); }
-  });
+  let stats: MergeStats | null = null;
+  if (mode === 'merge') { const r = merge(normalize(await readAll()), incoming); stats = r.stats; await writeAll(r.data); }
+  else await writeAll(incoming);
+  await setKV('schemaVersion', SCHEMA_VERSION);
+  return stats;
 }
 
 /** Keep the 3 most recent snapshots inside the app (undo for imports / mistakes). Daily, or forced. */

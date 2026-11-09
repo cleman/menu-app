@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { db, getKV, loadCatalogue, seedIfEmpty, setKV, snapshot } from '../db/db';
+import { db, getKV, loadCatalogue, migrate, seedIfEmpty, setKV, snapshot } from '../db/db';
 import type { Catalogue } from '../domain/catalogue';
 import { parseFreeText, parseJsonLdRecipe, type RecipeDraft } from '../domain/recipeText';
 import { Boundary, CatCtx, Toaster, toast, useLive } from './kit';
@@ -36,7 +36,7 @@ export function App() {
   const reloadCat = () => loadCatalogue().then(setCat);
   useEffect(() => {
     (async () => {
-      const c = await loadCatalogue(); await seedIfEmpty(c);
+      await migrate(); const c = await loadCatalogue(); await seedIfEmpty(c);
       if (!(await getKV('firstUse', 0))) await setKV('firstUse', Date.now());
       setCat(c); snapshot();
       if (!(await getKV('onboarded', false))) setWelcome(true);
