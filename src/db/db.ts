@@ -1,6 +1,6 @@
 // The only database layer (Dexie / IndexedDB). UI talks to it through these helpers.
 import Dexie, { type Table } from 'dexie';
-import type { KV, ListItem, Period, PlannedMeal, Recipe, Snapshot, StockItem } from './types';
+import type { Conflict, KV, ListItem, Period, PlannedMeal, Recipe, Snapshot, StockItem, SyncMeta } from './types';
 import type { Ingredient } from '../domain/catalogue';
 import { Catalogue, parseCatalogue } from '../domain/catalogue';
 import { parseText } from '../domain/parser';
@@ -16,12 +16,16 @@ class MenuDB extends Dexie {
   ingredients!: Table<Ingredient, string>;   // user-created only
   kv!: Table<KV, string>;
   snapshots!: Table<Snapshot, number>;
+  sync!: Table<KV, string>;               // this device's sync identity / group / peers (never synced, never in backups)
+  syncmeta!: Table<SyncMeta, string>;     // per synced record: version vector, last editor, content hash
+  conflicts!: Table<Conflict, number>;    // versions that lost a conflict
   constructor() {
     super('menu-planner');
     this.version(1).stores({
       recipes: 'id, title', periods: 'id, start', meals: 'id, periodId, date, recipeId',
       stock: 'ingredientId', list: 'key', ingredients: 'id', kv: 'key', snapshots: '++id, at',
     });
+    this.version(2).stores({ sync: 'key', syncmeta: 'id, t', conflicts: '++id, at' });   // additive: existing tables and data untouched
   }
 }
 export const db = new MenuDB();
@@ -105,9 +109,9 @@ export async function importJSON(text: string, mode: 'replace' | 'merge' = 'repl
 }
 
 /** Keep the 3 most recent snapshots inside the app (undo for imports / mistakes). Daily, or forced. */
-export async function snapshot(force = false) {
+export async function snapshot(force = false, maxAge = 864e5) {
   const last = await db.snapshots.orderBy('at').last();
-  if (!force && last && Date.now() - last.at < 864e5) return;
+  if (!force && last && Date.now() - last.at < maxAge) return;
   await db.snapshots.add({ at: Date.now(), data: await exportJSON() });
   const all = await db.snapshots.orderBy('at').toArray();
   if (all.length > 3) await db.snapshots.bulkDelete(all.slice(0, all.length - 3).map(s => s.id!));

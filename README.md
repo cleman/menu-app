@@ -34,3 +34,4 @@ Optional later: wrap as an APK with Capacitor (only if Chrome ever clears the ap
 See `MAP.md` (project mind map) and `CLAUDE.md`. Design rationale: the council report in `council-runs/`.
 
 **Menu** · page « 📄 Menu » dans Plan : le menu du plan en grille lisible (téléphone, tablette) + export PDF (A4 ↕↔, Tablette ↔↕). **Sauvegarde** · restaurer un fichier = *Fusionner* (ajoute, rien n'est supprimé) ou *Remplacer*.
+**Synchronisation** · Réglages → 🔄 Synchronisation : plusieurs appareils (téléphone, tablette) avec les mêmes données, par échange d'un fichier (Partage à proximité / Bluetooth / Wi-Fi Direct), sans compte. Un appareil « chef » l'emporte en cas de désaccord sur une même donnée ; l'autre version est gardée et restaurable.

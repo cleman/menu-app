@@ -45,7 +45,7 @@ export function RecipeEdit({ recipe, draft, onClose }: { recipe?: Recipe; draft?
   const save = async () => {
     if (!title.trim()) { toast('Donnez un titre'); return; }
     const r: Recipe = { id: recipe?.id || uid(), title: title.trim(), servings, minutes: Number(minutes) || undefined, tags, lines,
-      steps: steps.trim(), source: recipe?.source || 'user', updatedAt: Date.now() };
+      steps: steps.trim(), source: 'user', updatedAt: Date.now() };
     await db.recipes.put(r); toast(recipe ? 'Enregistré' : 'Recette ajoutée'); onClose();
   };
   const createIng = async () => {

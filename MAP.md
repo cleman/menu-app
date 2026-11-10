@@ -15,6 +15,7 @@ Design source: council-runs/meal-planner-20261029/design-v2.md (+ verdict.md).
   - suggest.ts     main dishes only (isMain) · not-recent + use-it-up + season · alternate vege
   - dates.ts       'YYYY-MM-DD' helpers, fr-FR labels
   - backup.ts      backup format v2: normalize (v1→v2, starter ids), merge(local, incoming) · DEVICE_LOCAL_KV
+  - sync.ts        PURE sync rules: version vectors, content hash, decide(local, remote, chiefId), mergeGroup, parseSyncFile, SYNC_KV
   - menuLayout.ts  buildMenu(period, meals, recipes) → days (midi/soir) + ideas, for Menu page and PDF
 - src/data/
   - ingredients.ts  ~570 lines "id|en|fr|aisle|pieceG|aliases" · AISLES (13 French store sections) · PANTRY_AISLES
@@ -26,6 +27,7 @@ Design source: council-runs/meal-planner-20261029/design-v2.md (+ verdict.md).
   - PlanScreen + PlanSheets (SlotPicker: slot = 1 tap; Ideas = multi-select stays open + FilterBar · MealMenu · PeriodDialog · FillSheet · ReviewSheet)
   - RecipesScreen (+RecipeBody, FilterBar) · RecipeEdit (+PasteSheet, tag groups, parse preview, create ingredient)
   - ListScreen: Proposal (uncheck → kv proposalOff, extras stage 'proposal', CheckHome, Valider → cart + meals.listedAt) · Cart (tick, ✕, SizeSheet, share) · PutAway → stock
+  - SyncSheet (Réglages → Synchronisation: create/join group, send/receive file, chief, conflict history)
   - MenuView (full-screen plan menu, opened from Plan → 📄 Menu) + menuPdf.ts (jsPDF lazy; formats A4 ↕↔, Tablette ↔↕)
   - StockScreen (+QtySheet) · Settings (Welcome, BackupBanner, SettingsSheet)
 - tests/  parser · list (+stock, cart) · recipeText · bank (validates every bank file) · e2e_smoke.py (Playwright phone flows)
@@ -46,3 +48,10 @@ kv: schemaVersion, pdfFormat, household, onboarded, cookDeduct, lastExport, firs
 
 ## Later
 URL import beyond JSON-LD · aisle reorder per store · Capacitor APK (only if storage wiped) · cook mode (wake lock)
+
+## Sync (v0.4) — files today, WebRTC/QR later
+- Synced: recipes (source≠starter; editing a starter makes it 'user'), periods, meals, stock, list, ingredients, kv household/cookDeduct/proposalOff. Never: starters, snapshots, other kv.
+- Per record `syncmeta` = {version vector, last editor, content hash(ignores updatedAt), del}. Tables sync/syncmeta/conflicts are Dexie v2 (additive), not in backups.
+- Send = full synced state as JSON (idempotent, order-independent). Receive: newer vector wins; concurrent edits → the CHIEF's version wins (else latest), loser → `conflicts` (restorable). Deletes are tombstones.
+- Join: 'adopt' (take the group's data, atomic) or 'merge'. Chief: only the chief hands over (chiefSeq); anyone can take over.
+- Tests: tests/sync.test.ts (rules), tests/syncdb.test.ts (2–3 simulated devices).

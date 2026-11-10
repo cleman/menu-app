@@ -25,3 +25,8 @@ export interface ListItem {
 }
 export interface KV { key: string; value: unknown }
 export interface Snapshot { id?: number; at: number; data: string }
+
+// ---- sync (v0.3) ----
+export type { Meta as SyncMeta } from '../domain/sync';
+/** A version that lost a conflict (the chief's won). Kept so it can be restored. data = null means "it was deleted". */
+export interface Conflict { id?: number; t: string; k: string; at: number; label: string; dev: string; data: unknown | null }

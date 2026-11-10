@@ -37,18 +37,18 @@ export function PlanScreen({ goList }: { goList: () => void }) {
     {sheet?.k === 'menu' && p && <MenuView period={p} meals={meals} recipes={recipes} onClose={close} />}
   </>;
 
-  if (!p) return <section class="screen">
+  if (!p) return <><section class="screen">
     <div class="topbar"><h1>Plan</h1><button class="icon" aria-label="Réglages" onClick={() => setSheet({ k: 'settings' })}>⚙</button></div>
     <Empty icon="🗓" title="Planifiez vos prochains repas">
       <p>Choisissez combien de jours planifier : une semaine, deux, ou la durée que vous voulez.</p>
       <button class="primary" onClick={() => setSheet({ k: 'period' })}>Commencer un plan</button>
-    </Empty>{sheets}</section>;
+    </Empty></section>{sheets}</>;
 
   const daysLeft = diffDays(t, p.end);
   const ended = p.end < t && !p.reviewedAt;
   const isLast = idx === ps.length - 1;
 
-  return <section class="screen">
+  return <><section class="screen">
     <div class="topbar">
       <button class="icon" aria-label="Plan précédent" disabled={idx <= 0} onClick={() => setPid(ps[idx - 1].id)}>‹</button>
       <div class="ptitle"><h1>{short(p.start)} – {short(p.end)}</h1><small>{diffDays(p.start, p.end) + 1} jours · {meals.filter(m => m.recipeId || m.label).length} repas</small></div>
@@ -81,8 +81,7 @@ export function PlanScreen({ goList }: { goList: () => void }) {
             {!ms.length && <button class="add" aria-label={`Ajouter ${s === 'lunch' ? 'midi' : 'soir'} ${label(d)}`} onClick={() => setSheet({ k: 'slot', date: d, slot: s })}>+</button>}</div></div>;
       })}
     </div>)}
-    {sheets}
-  </section>;
+  </section>{sheets}</>;
 }
 
 export function MealChip({ m, recipes, onClick }: { m: PlannedMeal; recipes: Map<string, Recipe>; onClick: () => void }) {

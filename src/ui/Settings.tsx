@@ -1,7 +1,9 @@
 import { useContext, useEffect, useState } from 'preact/hooks';
 import { db, exportJSON, getKV, importJSON, setKV } from '../db/db';
 import { normalize } from '../domain/backup';
+import { getGroup } from '../db/sync';
 import { CatCtx, Sheet, Stepper, toast, useLive } from './kit';
+import { SyncSheet } from './SyncSheet';
 
 const DAY = 864e5;
 
@@ -42,6 +44,8 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
   const deduct = useLive(() => getKV('cookDeduct', false), []);
   const last = useLive(() => getKV('lastExport', 0), []);
   const snaps = useLive(() => db.snapshots.orderBy('at').reverse().toArray(), []) || [];
+  const grouped = useLive(async () => !!(await getGroup()), []);
+  const [showSync, setShowSync] = useState(false);
   const counts = useLive(async () => ({ r: await db.recipes.count(), s: await db.stock.count() }), []);
   const [persisted, setPersisted] = useState<boolean | null>(null);
   useEffect(() => { navigator.storage?.persisted?.().then(setPersisted); }, []);
@@ -65,6 +69,9 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
       <small class="muted">Utilisé pour chaque nouveau repas. Modifiable repas par repas.</small></div>
     <label class="check"><input type="checkbox" checked={!!deduct} onChange={e => setKV('cookDeduct', e.currentTarget.checked)} />
       Quand je marque un repas « cuisiné », retirer ses ingrédients de « Maison » <small class="muted">(seulement si la quantité est connue)</small></label>
+    <h4>Plusieurs appareils</h4>
+    <p class="muted">Téléphone et tablette avec les mêmes données.</p>
+    <button class="secondary" onClick={() => setShowSync(true)}>🔄 Synchronisation{grouped ? ' (activée)' : ''}</button>
     <h4>Vos données</h4>
     <p class="muted">{counts ? `${counts.r} recettes · ${counts.s} produits à la maison. ` : ''}Tout reste sur ce téléphone, sans compte.
       {persisted === true ? ' ✓ Stockage protégé par le navigateur.' : persisted === false ? " ⚠ Le navigateur peut effacer les données s'il manque de place : installez l'app et faites des sauvegardes." : ''}</p>
@@ -75,10 +82,12 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
       <ul class="rlist">{snaps.map(s => <li><span>{new Date(s.at).toLocaleString('fr-FR')}</span><button class="sm ghost" onClick={() => restore(s.data)}>Restaurer</button></li>)}</ul></>}
     <h4>Ajouter une recette depuis Chrome</h4>
     <p class="muted small">Sur une page de recette : sélectionnez le texte de la recette (appui long, puis étendez la sélection) → <b>Partager</b> → <b>Menu</b>. L'app s'ouvre avec la recette pré-remplie. Fonctionne une fois l'app installée.</p>
-    <p class="muted small">Menu · v0.3 · hors ligne</p>
+    <p class="muted small">Menu · v0.4 · hors ligne</p>
+    {showSync && <SyncSheet onClose={() => setShowSync(false)} />}
     {file && <Sheet title="Restaurer cette sauvegarde" onClose={() => setFile(null)}>
       <p><b>Fusionner</b> (conseillé) : ajoute les données du fichier à celles de cet appareil. Rien n'est supprimé ; si une recette ou un produit existe des deux côtés, la version la plus récente est gardée.</p>
       <p><b>Remplacer</b> : efface les données de cet appareil et reprend exactement celles du fichier.</p>
+      {grouped && <p><b>⚠ Cet appareil est dans un groupe de synchronisation :</b> ce que vous restaurez ici sera envoyé aux autres appareils comme des modifications (en cas de désaccord, le chef l'emporte).</p>}
       <p class="muted small">Dans les deux cas, une copie automatique des données actuelles est gardée avant.</p>
       <div class="row gap wrap"><button class="primary" onClick={() => doImport('merge')}>Fusionner</button>
         <button class="secondary" onClick={() => doImport('replace')}>Remplacer tout</button></div>
