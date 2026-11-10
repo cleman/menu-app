@@ -38,3 +38,6 @@ it('merge keeps everything, newest recipe/stock wins, local wins elsewhere, devi
   const kv = byId(data.kv, 'key'); expect(kv.household.value).toBe(2); expect(kv.cookDeduct.value).toBe(true); expect(kv.firstUse.value).toBe(1);
   expect(stats).toEqual({ added: 3, updated: 1 });   // r3, m9, rice added · r2 updated
 });
+it('a sync file picked as a backup gets a helpful message', () => {
+  expect(() => normalize({ app: 'menu-planner-sync', entries: [] })).toThrow(/Synchronisation/);
+});

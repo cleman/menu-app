@@ -19,6 +19,7 @@ export const starterId = (title: string) => 's-' + fold(title).replace(/[^a-z0-9
 
 /** Validate a parsed backup file (v1 or v2) and bring it to the current shape. Never mutates the input. */
 export function normalize(raw: any): Backup {
+  if (raw?.app === 'menu-planner-sync') throw new Error("C'est un fichier de synchronisation, pas une sauvegarde : utilisez Réglages → Synchronisation → « Recevoir un fichier ».");
   if (!raw || raw.app !== 'menu-planner' || !Array.isArray(raw.recipes)) throw new Error("Ce fichier n'est pas une sauvegarde de Menu.");
   if ((Number(raw.version) || 1) > BACKUP_VERSION) throw new Error("Cette sauvegarde vient d'une version plus récente de Menu : mettez l'app à jour d'abord.");
   const arr = (k: string) => (Array.isArray(raw[k]) ? raw[k] : []);

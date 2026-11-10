@@ -19,16 +19,31 @@ export function SyncSheet({ onClose }: { onClose: () => void }) {
   const isChief = !!group && !!self && group.chiefId === self.id;
   const nameOf = (id: string) => (self && id === self.id ? self.name + ' (cet appareil)' : peers[id]?.name || 'Autre appareil');
 
-  const send = async () => {
+  // Chrome only lets web apps share a short list of file types (images, audio, video, pdf, a few text types): .json is refused
+  // ("Permission denied"), .txt / text/plain is allowed. So the sync file is plain text containing JSON.
+  const makeFile = async () => {
+    const f = await buildSyncFile(), text = JSON.stringify(f);
+    const fname = `menu-synchro-${(self?.name || 'appareil').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.txt`;
+    return { text, file: new File([text], fname, { type: 'text/plain' }), fname };
+  };
+  const saveFile = (text: string, fname: string) => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' })); a.download = fname; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast('Fichier enregistré dans Téléchargements');
+  };
+  const send = async (saveOnly = false) => {
     setBusy(true);
     try {
-      const f = await buildSyncFile(), blob = new Blob([JSON.stringify(f)], { type: 'application/json' });
-      const fname = `menu-synchro-${(self?.name || 'appareil').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.json`;
-      const file = new File([blob], fname, { type: 'application/json' });
-      if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: 'Synchro Menu' });
-      else { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast('Fichier enregistré dans Téléchargements'); }
+      const { text, file, fname } = await makeFile();
+      if (saveOnly || !navigator.canShare?.({ files: [file] })) saveFile(text, fname);
+      else {
+        try { await navigator.share({ files: [file], title: 'Synchro Menu' }); }
+        catch (e: any) {
+          if (e?.name === 'AbortError') { setBusy(false); return; }                                     // the person closed the share sheet
+          saveFile(text, fname); toast("Partage impossible ici : fichier enregistré dans Téléchargements, envoyez-le depuis l'app Fichiers.");
+        }
+      }
       await markSent();
-    } catch (e: any) { if (e?.name !== 'AbortError') toast('Envoi impossible : ' + (e?.message || e)); }
+    } catch (e: any) { toast('Envoi impossible : ' + (e?.message || e)); }
     setBusy(false);
   };
   const run = async (f: SyncFile, join?: 'adopt' | 'merge') => {
@@ -41,7 +56,7 @@ export function SyncSheet({ onClose }: { onClose: () => void }) {
     const input = e.target as HTMLInputElement, f = input.files?.[0]; if (!f) return;
     f.text().then(t => run(parseSyncFile(t))).catch(err => toast(err.message)).finally(() => { input.value = ''; });
   };
-  const fileInput = (label: string, cls = 'secondary') => <label class={'button ' + cls}>{label}<input type="file" accept="application/json,.json" hidden onChange={receive} /></label>;
+  const fileInput = (label: string, cls = 'secondary') => <label class={'button ' + cls}>{label}<input type="file" accept="text/plain,.txt,application/json,.json" hidden onChange={receive} /></label>;
 
   const nameField = self && <div class="field"><label>Nom de cet appareil <small class="muted">(ex. Téléphone, Tablette)</small></label>
     <div class="row gap"><input value={name ?? self.name} onInput={e => setName(e.currentTarget.value)} />
@@ -60,7 +75,8 @@ export function SyncSheet({ onClose }: { onClose: () => void }) {
 
     {group && self && <>
       <p>{isChief ? '👑 Cet appareil est le chef.' : <>Chef du groupe : <b>{nameOf(group.chiefId)}</b>.</>} <small class="muted">En cas de désaccord sur une même donnée, la version du chef est gardée.</small></p>
-      <div class="row gap wrap"><button class="primary" disabled={busy} onClick={send}>📤 Envoyer mes données</button>{fileInput('📥 Recevoir un fichier')}</div>
+      <div class="row gap wrap"><button class="primary" disabled={busy} onClick={() => send()}>📤 Envoyer mes données</button>{fileInput('📥 Recevoir un fichier')}</div>
+      <button class="sm ghost" disabled={busy} onClick={() => send(true)}>💾 Seulement enregistrer le fichier (puis l'envoyer depuis l'app Fichiers)</button>
       <p class="muted small">Dernier envoi : {when(times?.sent)} · Dernière réception : {when(times?.received)}. Pour être à jour partout : envoyez de A vers B, puis de B vers A.</p>
 
       <h4>Appareils du groupe</h4>
