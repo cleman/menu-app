@@ -160,3 +160,9 @@ textarea { resize: vertical; line-height: 1.5; } input.short { width: 140px; fle
   display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 @media (min-width: 700px) { .menufoot { flex-direction: row; align-items: center; justify-content: space-between; } }
 @media print { .menufoot, .topbar button { display: none; } .menupage { position: static; overflow: visible; } }
+
+/* ---- QR / live sync (v0.5) ---- */
+.qr { width: min(100%, 340px); height: auto; display: block; margin: 8px auto; border-radius: 8px; background: #fff; }
+.scanner { width: 100%; max-height: 52vh; object-fit: cover; border-radius: var(--r); background: #000; margin: 8px 0; }
+.codebox { width: 100%; min-height: 96px; font-family: ui-monospace, monospace; font-size: .8rem; word-break: break-all; }
+.steps { padding-left: 20px; margin: 6px 0; } .steps li { margin: 4px 0; }

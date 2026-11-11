@@ -82,7 +82,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
       <ul class="rlist">{snaps.map(s => <li><span>{new Date(s.at).toLocaleString('fr-FR')}</span><button class="sm ghost" onClick={() => restore(s.data)}>Restaurer</button></li>)}</ul></>}
     <h4>Ajouter une recette depuis Chrome</h4>
     <p class="muted small">Sur une page de recette : sélectionnez le texte de la recette (appui long, puis étendez la sélection) → <b>Partager</b> → <b>Menu</b>. L'app s'ouvre avec la recette pré-remplie. Fonctionne une fois l'app installée.</p>
-    <p class="muted small">Menu · v0.4.1 · hors ligne</p>
+    <p class="muted small">Menu · v0.5 · hors ligne</p>
     {showSync && <SyncSheet onClose={() => setShowSync(false)} />}
     {file && <Sheet title="Restaurer cette sauvegarde" onClose={() => setFile(null)}>
       <p><b>Fusionner</b> (conseillé) : ajoute les données du fichier à celles de cet appareil. Rien n'est supprimé ; si une recette ou un produit existe des deux côtés, la version la plus récente est gardée.</p>

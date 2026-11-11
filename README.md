@@ -35,3 +35,4 @@ See `MAP.md` (project mind map) and `CLAUDE.md`. Design rationale: the council r
 
 **Menu** · page « 📄 Menu » dans Plan : le menu du plan en grille lisible (téléphone, tablette) + export PDF (A4 ↕↔, Tablette ↔↕). **Sauvegarde** · restaurer un fichier = *Fusionner* (ajoute, rien n'est supprimé) ou *Remplacer*.
 **Synchronisation** · Réglages → 🔄 Synchronisation : plusieurs appareils (téléphone, tablette) avec les mêmes données, par échange d'un fichier (Partage à proximité / Bluetooth / Wi-Fi Direct), sans compte. Un appareil « chef » l'emporte en cas de désaccord sur une même donnée ; l'autre version est gardée et restaurable.
+**Synchro en direct** · Réglages → Synchronisation → 📡 : deux QR codes (ou deux textes copiés) connectent directement les appareils par le Wi-Fi, sans serveur ni fichier. Sinon : fichier .txt, ou « Copier un code » / « Coller un code ».
